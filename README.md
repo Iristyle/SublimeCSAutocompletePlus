@@ -292,7 +292,20 @@ These settings are accessible via `Preferences -> Settings — User`.
 
 In `CoffeeComplete Plus.sublime-settings`:
 
-#### Excluded Directories 
+#### Implicit Parens On Insertion
+
+* `coffee_autocomplete_plus_no_implicit_parens` &mdash; Insert parens around function parameters that are functions.
+  - When an instance method is completed with a single parameter that is a function, then parentheses are omitted by default.  For instance, the the `Array` `every` function is completed as `.every (val, index, arr) ->` by default.  However, if you would like to enforce the [Coffeelint][] `no_implicit_parens` rule, then set this to `true`.  In the previous example, this would generate `.every((val, index, arr) ->)`
+  - Expected value: true or false (default).
+  - Example:
+
+```
+		"coffee_autocomplete_plus_no_implicit_parens" : true,
+```
+
+[Coffeelint]: http://www.coffeelint.org/
+
+#### Excluded Directories
 
 * `coffee_autocomplete_plus_excluded_dirs` &mdash; Excluded directories.
   - Directories to exclude from searching for CoffeeScript classes, functions and variables. All directories in your project are searched except for the ones that match the names listed in this setting. **This is recommended.** Some excluded directories have already been specified in settings.

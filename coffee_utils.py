@@ -25,6 +25,7 @@ CUSTOM_TYPES_SETTINGS_KEY = "coffee_autocomplete_plus_custom_types"
 FUNCTION_RETURN_TYPES_SETTINGS_KEY = "coffee_autocomplete_plus_function_return_types"
 FUNCTION_RETURN_TYPE_TYPE_NAME_KEY = "type_name"
 FUNCTION_RETURN_TYPE_FUNCTION_NAMES_KEY = "function_names"
+NO_IMPLICIT_PARENS_SETTINGS_KEY = "coffee_autocomplete_plus_no_implicit_parens"
 
 COFFEESCRIPT_SYNTAX = r"CoffeeScript"
 COFFEE_EXTENSION_WITH_DOT = "\.coffee|\.litcoffee|\.coffee\.md"
@@ -698,7 +699,7 @@ def get_indentation_size(line_of_text):
     return size
 
 
-def get_completions_for_class(class_name, search_statically, local_file_lines, prefix, global_file_path_list, built_in_types, member_exclusion_regexes, show_private):
+def get_completions_for_class(class_name, search_statically, local_file_lines, prefix, global_file_path_list, built_in_types, member_exclusion_regexes, show_private, no_implicit_parens):
 
     # TODO: Use prefix to make suggestions.
 
@@ -717,12 +718,12 @@ def get_completions_for_class(class_name, search_statically, local_file_lines, p
                 next_class_name = next_built_in_type[BUILT_IN_TYPES_TYPE_NAME_KEY]
                 if next_class_name == class_name:
                     # We are looking at a built-in type! Collect completions for it...
-                    completions = get_completions_for_built_in_type(next_built_in_type, search_statically, False, member_exclusion_regexes)
+                    completions = get_completions_for_built_in_type(next_built_in_type, search_statically, False, member_exclusion_regexes, no_implicit_parens)
                     original_class_name_found = True
                 elif next_class_name == "Function" and not function_completions:
-                    function_completions = get_completions_for_built_in_type(next_built_in_type, False, True, member_exclusion_regexes)
+                    function_completions = get_completions_for_built_in_type(next_built_in_type, False, True, member_exclusion_regexes, no_implicit_parens)
                 elif next_class_name == "Object" and not object_completions:
-                    object_completions = get_completions_for_built_in_type(next_built_in_type, False, True, member_exclusion_regexes)
+                    object_completions = get_completions_for_built_in_type(next_built_in_type, False, True, member_exclusion_regexes, no_implicit_parens)
         except Exception, e:
             print repr(e)
 
@@ -738,9 +739,9 @@ def get_completions_for_class(class_name, search_statically, local_file_lines, p
                 # print "Searching locally..."
                 # Search in local file.
                 if search_statically:
-                    completion_tuple = collect_static_completions_from_file(local_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private)
+                    completion_tuple = collect_static_completions_from_file(local_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private, no_implicit_parens)
                 else:
-                    completion_tuple = collect_instance_completions_from_file(local_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private)
+                    completion_tuple = collect_instance_completions_from_file(local_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private, no_implicit_parens)
 
             # Search globally if nothing found and not local only...
             if global_file_path_list and (not completion_tuple or not completion_tuple[0]):
@@ -751,9 +752,9 @@ def get_completions_for_class(class_name, search_statically, local_file_lines, p
                     file_to_open = global_class_location_search_tuple[0]
                     class_file_lines = get_lines_for_file(file_to_open)
                     if search_statically:
-                        completion_tuple = collect_static_completions_from_file(class_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private)
+                        completion_tuple = collect_static_completions_from_file(class_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private, no_implicit_parens)
                     else:
-                        completion_tuple = collect_instance_completions_from_file(class_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private)
+                        completion_tuple = collect_instance_completions_from_file(class_file_lines, current_class_name, is_inherited, member_exclusion_regexes, show_private, no_implicit_parens)
 
             if current_class_name == class_name and completion_tuple[0]:
                 original_class_name_found = True
@@ -781,7 +782,7 @@ def case_insensitive_startswith(original_string, prefix):
     return original_string.lower().startswith(prefix.lower())
 
 
-def get_completions_for_built_in_type(built_in_type, is_static, is_inherited, member_exclusion_regexes):
+def get_completions_for_built_in_type(built_in_type, is_static, is_inherited, member_exclusion_regexes, no_implicit_parens):
     completions = []
     if is_static:
         static_properties = []
@@ -810,7 +811,7 @@ def get_completions_for_built_in_type(built_in_type, is_static, is_inherited, me
                     except:
                         pass
                     method_insertions.append(method_insertion)
-                next_completion = get_method_completion_tuple(method_name, method_args, method_insertions, is_inherited)
+                next_completion = get_method_completion_tuple(method_name, method_args, method_insertions, is_inherited, no_implicit_parens)
                 completions.append(next_completion)
     else:
         instance_properties = []
@@ -839,12 +840,12 @@ def get_completions_for_built_in_type(built_in_type, is_static, is_inherited, me
                     except:
                         pass
                     method_insertions.append(method_insertion)
-                next_completion = get_method_completion_tuple(method_name, method_args, method_insertions, is_inherited)
+                next_completion = get_method_completion_tuple(method_name, method_args, method_insertions, is_inherited, no_implicit_parens)
                 completions.append(next_completion)
     return completions
 
 
-def collect_instance_completions_from_file(file_lines, class_name, is_inherited, member_exclusion_regexes, show_private):
+def collect_instance_completions_from_file(file_lines, class_name, is_inherited, member_exclusion_regexes, show_private, no_implicit_parens):
 
     completions = []
     extended_class = None
@@ -912,7 +913,7 @@ def collect_instance_completions_from_file(file_lines, class_name, is_inherited,
                                             next_arg = re.sub("[^a-zA-Z0-9_$].*", "", next_arg)
                                             function_args_list[i] = re.sub(THIS_SUGAR_SYMBOL, "", next_arg)
                                         function_alias = get_method_completion_alias(function_name, function_args_list, is_inherited)
-                                        function_insertion = get_method_completion_insertion(function_name, function_args_list)
+                                        function_insertion = get_method_completion_insertion(function_name, function_args_list, no_implicit_parens)
                                         function_completion = (function_alias, function_insertion)
                                         if function_completion not in function_completions:
                                             function_completions.append(function_completion)
@@ -957,7 +958,7 @@ def get_class_from_end_of_chain(dot_operation_chain):
     return class_at_end
 
 
-def collect_static_completions_from_file(file_lines, class_name, is_inherited, member_exclusion_regexes, show_private):
+def collect_static_completions_from_file(file_lines, class_name, is_inherited, member_exclusion_regexes, show_private, no_implicit_parens):
 
     completions = []
     extended_class = None
@@ -1026,7 +1027,7 @@ def collect_static_completions_from_file(file_lines, class_name, is_inherited, m
                                         next_arg = re.sub("[^a-zA-Z0-9_$].*", "", next_arg)
                                         function_args_list[i] = next_arg
                                     function_alias = get_method_completion_alias(function_name, function_args_list, is_inherited)
-                                    function_insertion = get_method_completion_insertion(function_name, function_args_list)
+                                    function_insertion = get_method_completion_insertion(function_name, function_args_list, no_implicit_parens)
                                     function_completion = (function_alias, function_insertion)
                                     if function_completion not in function_completions:
                                         function_completions.append(function_completion)
@@ -1083,13 +1084,13 @@ def get_method_completion_alias(method_name, args, is_inherited=False):
     return completion_string
 
 
-def get_method_completion_insertion(method_name, args):
+def get_method_completion_insertion(method_name, args, no_implicit_parens=False):
 
     no_parens = False
 
     completion_string = re.sub("[$]", "\$", method_name)
 
-    if len(args) == 1:
+    if (not no_implicit_parens) and len(args) == 1:
         function_match = re.search(r".*?[=\-]>.*", args[0])
         if function_match:
             no_parens = True
@@ -1111,8 +1112,8 @@ def get_method_completion_insertion(method_name, args):
     return completion_string
 
 
-def get_method_completion_tuple(method_name, arg_names, arg_insertions, is_inherited=False):
-    completion_tuple = (get_method_completion_alias(method_name, arg_names, is_inherited), get_method_completion_insertion(method_name, arg_insertions))
+def get_method_completion_tuple(method_name, arg_names, arg_insertions, is_inherited=False, no_implicit_parens=False):
+    completion_tuple = (get_method_completion_alias(method_name, arg_names, is_inherited), get_method_completion_insertion(method_name, arg_insertions, no_implicit_parens))
     return completion_tuple
 
 
